@@ -99,17 +99,20 @@
             height: 16px;
             fill: white;
         }
-        .message{
+
+        .message {
             overflow-wrap: break-word;
         }
-        span{
+
+        .online {
             position: absolute;
             left: 50%;
             top: 20px;
             transform: translateX(-50%);
             font-size: 20px;
         }
-        span.size{
+
+        .online .size {
             font-weight: bold;
             color: #46ff1c;
         }
@@ -123,7 +126,7 @@
         </svg>
     </button>
     <div class="header">
-        <span>Online <span class="size">0</span></span>
+        <span class="online">Online <span class="size">0</span></span>
     </div>
     <div class="container" id="register">
         <h2>Sign Up</h2>
@@ -144,7 +147,7 @@
         <h2>Chat</h2>
         <div class="messages" id="messages"></div>
         <input type="text" id="messageInput" placeholder="Write somethings...">
-        <button onclick="sendMessage()">Send</button>
+        <button id="sendButton" onclick="sendMessage()">Send</button>
     </div>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -257,15 +260,26 @@
                         Swal.fire({
                             position: 'top-end',
                             icon: 'error',
-                            title: 'Unknown Error!',
-                            text: error.message,
+                            title: 'Error!',
+                            text: data.message,
                             showConfirmButton: false,
                             timer: 3000,
                             toast: true
                         });
                     }
                 })
-                .catch(error => console.error('Login error:', error.message));
+                .catch(error => {
+                    Swal.fire({
+                        position: 'top-end',
+                        icon: 'error',
+                        title: 'Unknown Error!',
+                        text: error.message,
+                        showConfirmButton: false,
+                        timer: 3000,
+                        toast: true
+                    });
+                    console.error('Login error:', error.message)
+                });
         }
 
         async function fetchMessages() {
@@ -279,6 +293,7 @@
                 if (msg.name == "System") {
                     let color = msg.message.split(" ").includes("joined") ? "#46ff1c" : "#ff0000";
                     div.style.color = color;
+                    div.style.opacity = 0.5;
                 }
                 div.textContent = `${msg.name}: ${msg.message}`;
                 messagesDiv.appendChild(div);
@@ -298,6 +313,7 @@
                 if (data.userID == "System") {
                     let color = data.message.split(" ").includes("joined") ? "#46ff1c" : "#ff0000";
                     div.style.color = color;
+                    div.style.opacity = 0.5;
                     document.querySelector('.size').textContent = data.size;
                 }
                 div.textContent = `${data.userID}: ${data.message}`;
@@ -324,6 +340,24 @@
                 socket.emit("chat message", message);
             }
         }
+
+        
+        document.addEventListener("DOMContentLoaded", function () {
+            const input = document.getElementById('messageInput');
+            const button = document.getElementById("sendButton");
+
+            function handleKeyDown(event) {
+                if (event.key === "Enter") {
+                    button.click();
+                }
+            }
+            input.addEventListener("focus", function () {
+                document.addEventListener("keydown", handleKeyDown);
+            });
+            input.addEventListener("blur", function () {
+                document.removeEventListener("keydown", handleKeyDown);
+            });
+        });
 
         function showLogin() {
             document.getElementById('register').style.display = 'none';
