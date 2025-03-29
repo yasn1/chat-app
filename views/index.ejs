@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App | Live</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #1e1e2f;
+            color: white;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: #2a2a40;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        input,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 5px;
+        }
+
+        input {
+            background: #3a3a55;
+            color: white;
+        }
+
+        button {
+            background: #4caf50;
+            color: white;
+            cursor: pointer;
+        }
+
+        .chat {
+            display: none;
+        }
+
+        .messages {
+            max-height: 300px;
+            overflow-y: auto;
+            text-align: left;
+            padding: 10px;
+            cursor: default;
+        }
+
+        .message {
+            padding: 8px;
+            margin: 5px;
+            border-radius: 5px;
+            background: #2b2b2b;
+        }
+
+        .logout-button {
+            width: 50px;
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #d9534f;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background 0.3s;
+            display: none;
+        }
+
+        .logout-button:hover {
+            background-color: #c9302c;
+        }
+
+        .logout-icon {
+            width: 16px;
+            height: 16px;
+            fill: white;
+        }
+        .message{
+            overflow-wrap: break-word;
+        }
+        span{
+            position: absolute;
+            left: 50%;
+            top: 20px;
+            transform: translateX(-50%);
+            font-size: 20px;
+        }
+        span.size{
+            font-weight: bold;
+            color: #46ff1c;
+        }
+    </style>
+</head>
+
+<body>
+    <button class="logout-button" onclick="logout()">
+        <svg class="logout-icon" viewBox="0 0 24 24">
+            <path d="M10 2v4h2V4h8v16h-8v-2h-2v4h12V2H10zM13 12l-4-4v3H0v2h9v3l4-4z" />
+        </svg>
+    </button>
+    <div class="header">
+        <span>Online <span class="size">0</span></span>
+    </div>
+    <div class="container" id="register">
+        <h2>Sign Up</h2>
+        <input type="text" id="regName" placeholder="User name" required>
+        <input type="password" id="regPass" placeholder="Password" required>
+        <button onclick="register()">Sign Up</button>
+        <p>Do you have an account? <a href="#" onclick="showLogin()">Login</a></p>
+    </div>
+
+    <div class="container" id="login" style="display:none;">
+        <h2>Login</h2>
+        <input type="text" id="logName" placeholder="User name" required>
+        <input type="password" id="logPass" placeholder="Password" required>
+        <button onclick="login()">Login</button>
+    </div>
+
+    <div class="container chat" id="chat">
+        <h2>Chat</h2>
+        <div class="messages" id="messages"></div>
+        <input type="text" id="messageInput" placeholder="Write somethings...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        let user = null;
+        let socket = null;
+
+        function logout() {
+            fetch("/api/logout", {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.message === "Logout successful") {
+                        Swal.fire({
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'Success!',
+                            text: 'Logged out successfully!',
+                            showConfirmButton: false,
+                            timer: 3000,
+                            toast: true
+                        });
+                        document.getElementById('login').style.display = 'block';
+                        document.getElementById('chat').style.display = 'none';
+                        document.querySelector('.logout-button').style.display = 'none';
+                        socket.disconnect();
+                    } else {
+                        Swal.fire({
+                            position: 'top-end',
+                            icon: 'error',
+                            title: 'Unknown Error!',
+                            text: error.message,
+                            showConfirmButton: false,
+                            timer: 3000,
+                            toast: true
+                        });
+                    }
+                })
+                .catch(error => console.error('Logout error:', error.message));
+        }
+
+        function register() {
+            const name = document.getElementById('regName').value;
+            const pass = document.getElementById('regPass').value;
+
+            fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: name, password: pass })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message === "Registration successful") {
+                        Swal.fire({
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'Success!',
+                            text: 'Registration Successful! You can log in.',
+                            showConfirmButton: false,
+                            timer: 3000,
+                            toast: true
+                        });
+                        showLogin();
+                    } else {
+                        Swal.fire({
+                            position: 'top-end',
+                            icon: 'error',
+                            title: 'Unknown Error!',
+                            text: data.message,
+                            showConfirmButton: false,
+                            timer: 3000,
+                            toast: true
+                        });
+                    }
+                })
+                .catch(error => console.error('Registration error:', error.message));
+        }
+
+        function login(u = null, p = null) {
+            const name = u || document.getElementById('logName').value;
+            const pass = p || document.getElementById('logPass').value;
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: name, password: pass })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message === "Login successful") {
+                        Swal.fire({
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'Success Logged In!',
+                            text: `Welcome back ${name}`,
+                            showConfirmButton: false,
+                            timer: 3000,
+                            toast: true
+                        });
+                        user = name;
+                        document.getElementById('login').style.display = 'none';
+                        document.getElementById('chat').style.display = 'block';
+                        document.querySelector('.logout-button').style.display = 'block';
+                        initializeSocket(name);
+                        fetchMessages();
+                    } else {
+                        Swal.fire({
+                            position: 'top-end',
+                            icon: 'error',
+                            title: 'Unknown Error!',
+                            text: error.message,
+                            showConfirmButton: false,
+                            timer: 3000,
+                            toast: true
+                        });
+                    }
+                })
+                .catch(error => console.error('Login error:', error.message));
+        }
+
+        async function fetchMessages() {
+            const response = await fetch('/api/messages');
+            const messages = await response.json();
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = '';
+            messages.slice(-500).forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'message';
+                if (msg.name == "System") {
+                    let color = msg.message.split(" ").includes("joined") ? "#46ff1c" : "#ff0000";
+                    div.style.color = color;
+                }
+                div.textContent = `${msg.name}: ${msg.message}`;
+                messagesDiv.appendChild(div);
+            });
+        }
+
+        function initializeSocket(userID) {
+            socket = io("/", { auth: { userID } });
+
+            socket.on("connect", () => {
+            });
+
+            socket.on("chat message", (data) => {
+                const messagesDiv = document.getElementById('messages');
+                const div = document.createElement('div');
+                div.className = 'message';
+                if (data.userID == "System") {
+                    let color = data.message.split(" ").includes("joined") ? "#46ff1c" : "#ff0000";
+                    div.style.color = color;
+                    document.querySelector('.size').textContent = data.size;
+                }
+                div.textContent = `${data.userID}: ${data.message}`;
+                messagesDiv.appendChild(div);
+                document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+            });
+        }
+
+        function sendMessage() {
+            const message = document.getElementById('messageInput').value;
+            if (message.trim() == "") {
+                Swal.fire({
+                    icon: "error",
+                    title: "Oops...",
+                    text: "Boş mesaj gönderemezsin.",
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    toast: true,
+                });
+
+            } else {
+                document.getElementById('messageInput').value = "";
+                socket.emit("chat message", message);
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('register').style.display = 'none';
+            document.getElementById('login').style.display = 'block';
+        }
+        `<% if(session.username && session.password){%>
+            ${showLogin()}
+            ${login("<%=session.username%>", "<%=session.password%>")}
+            <% } %>`
+    </script>
+
+</body>
+
+</html>
